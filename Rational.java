@@ -12,10 +12,8 @@ import com.acciaccatura.rational.shortarrays.ShortArrays;
 //and XOR.
 
 public class Rational {
-	
-	private boolean non_neg;
+
 	private short[] numerator, denominator;
-	private boolean finite;
 	
 	public Rational(long a) {
 		setNumber(Long.toString(a), "1");
@@ -33,21 +31,18 @@ public class Rational {
 		setNumber(a, "1");
 	}
 	
-	private Rational(short[] a, short[] b, boolean neg, boolean fin) {
+	private Rational(short[] a, short[] b) {
 		numerator = a;
 		denominator = b;
-		non_neg = neg;
-		finite = fin;
 	}
 	
 	public void setNumber(String a, String b) {
-		non_neg = !(a.charAt(0) == '-' ^ b.charAt(0) == '-');
-		finite = true;
+		boolean neg = (a.charAt(0) == '-' ^ b.charAt(0) == '-');
 		if (a.charAt(0) == '-') {
 			a = a.substring(1);
 		}
 		if (b.charAt(0) == '-') {
-			b.substring(1);
+			b = b.substring(1);
 		}
 		a = a.replaceFirst("^0+", "");
 		b = b.replaceFirst("^0+", "");
@@ -57,9 +52,9 @@ public class Rational {
 		numerator = new short[a.length()];
 		denominator = new short[b.length()];
 		for (int x = 0; x < numerator.length; x++)
-			numerator[x] = (short) (a.charAt(numerator.length-1-x)-0x30);
+			numerator[x] = (short) ((a.charAt(numerator.length-1-x)-0x30)*(neg ? -1 : 1));
 		for (int x = 0; x < denominator.length; x++)
-			denominator[x] = (short) (b.charAt(denominator.length-1-x)-0x30);
+			denominator[x] = (short) ((b.charAt(denominator.length-1-x)-0x30));
 		reduce();
 	}
 	
@@ -69,32 +64,16 @@ public class Rational {
 	public Rational add(Rational numb){
 		short[] denom = ShortArrays.multiplyArrays(this.denominator, numb.getDenominator());
 		short[] num = ShortArrays.addArrays(ShortArrays.multiplyArrays(this.getNumerator(), numb.getDenominator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getNumerator()));
-		return new Rational(num, denom, false, false);
+		return new Rational(num, denom);
 	}
 	
 	//TODO: I think this function's finished
 	public Rational multiply(Rational numb) {
-		boolean finite = this.finite || numb.finite;
-		boolean non_neg = !(numb.non_neg ^ this.non_neg);
-		if (!finite) {
-			short[] a = {0};
-			short[] b = {1};
-			return new Rational(a, b, non_neg, finite);
-		} else {
-			return new Rational(ShortArrays.multiplyArrays(this.getNumerator(), numb.getNumerator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getDenominator()), non_neg, finite);
-		}
+		return new Rational(ShortArrays.multiplyArrays(this.getNumerator(), numb.getNumerator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getDenominator()));
 	}
 	
 	public Rational divide(Rational numb) {
-		boolean finite = this.finite || numb.finite;
-		boolean non_neg = !(numb.non_neg ^ this.non_neg);
-		if (!finite) {
-			short[] a = {0};
-			short[] b = {1};
-			return new Rational(a, b, non_neg, finite);
-		} else {
-			return new Rational(ShortArrays.multiplyArrays(this.getNumerator(), numb.getDenominator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getNumerator()), non_neg, finite);
-		}
+		return new Rational(ShortArrays.multiplyArrays(this.getNumerator(), numb.getDenominator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getNumerator()));
 	}
 	
 	//This function should be called upon creating a new Rational.
@@ -137,22 +116,50 @@ public class Rational {
 	public String toString() {
 		StringBuilder num = new StringBuilder();
 		StringBuilder den = new StringBuilder();
-		boolean numIsZero = true;
-		boolean denIsZero = true;
+		boolean numIsNeg = ShortArrays.isNegative(numerator);
+		boolean denIsNeg = ShortArrays.isNegative(denominator);
+		if (numerator.length == 1 && numerator[0] == 0)
+			return "0";
 		for (int a = numerator.length-1; a >= 0; a--) {
-			num.append(numerator[a]);
+			num.append(numerator[a]*(numIsNeg ? -1 : 1));
 		}
 		for (int a = denominator.length-1; a >= 0; a--) {
-			den.append(denominator[a]);
+			den.append(denominator[a]*(numIsNeg ? -1 : 1));
 		}
-		return ((non_neg) ? "" : "-") + num.toString() + (den.toString().equals("1") ? "" : "/"+den.toString());
+		return ((numIsNeg ^ denIsNeg) ? "-" : "") + num.toString() + (denominator.length == 1 && denominator[0] == 1 ? "" : "/" + den.toString());
 	}
 	
-	public static void main(String[] args) {
-		Rational a = new Rational("74", "5465734675534");
-		System.out.println(a);
-		a = new Rational("5", "534");
-		System.out.println(a);
+	public String toDecimalString(int acc) {
+		boolean numbIsNeg = ShortArrays.isNegative(numerator) ^ ShortArrays.isNegative(denominator);
+		short[] num2 = ShortArrays.digitShift(numerator, acc + numerator.length);
+		StringBuilder numb = new StringBuilder();
+		short[] intdiv = ShortArrays.divideArrays(numerator, denominator);
+		short[] mydiv = ShortArrays.divideArrays(num2, denominator);
+		int diff = mydiv.length - intdiv.length;
+		int at = mydiv.length-1;
+		if (numbIsNeg)
+			numb.append("-");
+		//TODO: I'm still not 100% that this is correct.
+		if (ShortArrays.compareTo(numerator, 0, numerator.length, denominator) == -1) {
+			numb.append("0.");
+			diff = denominator.length - numerator.length;
+			for (int a = 0; a < diff; a++) {
+				numb.append("0");
+			}
+			for (; at >= 0; at--) {
+				numb.append(Math.abs(mydiv[at]));
+			}
+			return numb.toString();
+		}
+		for (; at >= diff; at--) {
+			numb.append(Math.abs(mydiv[at]));
+		}
+		//System.out.println(diff);
+		if (diff != 0)
+			numb.append(".");
+		for (; at >= 0; at--) {
+			numb.append(Math.abs(mydiv[at]));
+		}
+		return numb.toString();
 	}
-	
 }

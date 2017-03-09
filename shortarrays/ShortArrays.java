@@ -59,6 +59,8 @@ public class ShortArrays {
 	public static short[] divideArrays(short[] a, short[] b) {
 		if (b.length > a.length || (b.length == 1 && b[0] == 0)) {
 			return new short[1];
+		} else if (b.length == 1 && b[0] == 1) {
+			return Arrays.copyOf(a, a.length);
 		} else {
 			boolean is_neg = isNegative(a) ^ isNegative(b);
 			short[] negb = !isNegative(b) ? flipSign(b) : b;
