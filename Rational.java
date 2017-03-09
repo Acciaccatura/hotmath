@@ -1,8 +1,15 @@
 package com.acciaccatura.rational;
 
+import java.util.Arrays;
+
 import com.acciaccatura.rational.exceptions.InvalidValueException;
+import com.acciaccatura.rational.shortarrays.ShortArrays;
 
 //Java library for expressing rational base-10 numbers, and performing arithmetic on them.
+
+//I just introduced the idea of negatives and subtraction. It is when all the numbers in the array are negative.
+//If this is the case, non_neg may no longer be needed. I could just check the LSD for the numerator and denominator
+//and XOR.
 
 public class Rational {
 	
@@ -53,14 +60,15 @@ public class Rational {
 			numerator[x] = (short) (a.charAt(numerator.length-1-x)-0x30);
 		for (int x = 0; x < denominator.length; x++)
 			denominator[x] = (short) (b.charAt(denominator.length-1-x)-0x30);
+		reduce();
 	}
 	
 	//Define some arithmetic stuff
 	
 	//TODO: What if one of the numbers are negative?
 	public Rational add(Rational numb){
-		short[] denom = multiplyVectors(this.denominator, numb.getDenominator());
-		short[] num = addVectors(multiplyVectors(this.getNumerator(), numb.getDenominator()), multiplyVectors(this.getDenominator(), numb.getNumerator()));
+		short[] denom = ShortArrays.multiplyArrays(this.denominator, numb.getDenominator());
+		short[] num = ShortArrays.addArrays(ShortArrays.multiplyArrays(this.getNumerator(), numb.getDenominator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getNumerator()));
 		return new Rational(num, denom, false, false);
 	}
 	
@@ -73,7 +81,7 @@ public class Rational {
 			short[] b = {1};
 			return new Rational(a, b, non_neg, finite);
 		} else {
-			return new Rational(multiplyVectors(this.getNumerator(), numb.getNumerator()), multiplyVectors(this.getDenominator(), numb.getDenominator()), non_neg, finite);
+			return new Rational(ShortArrays.multiplyArrays(this.getNumerator(), numb.getNumerator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getDenominator()), non_neg, finite);
 		}
 	}
 	
@@ -85,81 +93,38 @@ public class Rational {
 			short[] b = {1};
 			return new Rational(a, b, non_neg, finite);
 		} else {
-			return new Rational(multiplyVectors(this.getNumerator(), numb.getDenominator()), multiplyVectors(this.getDenominator(), numb.getNumerator()), non_neg, finite);
+			return new Rational(ShortArrays.multiplyArrays(this.getNumerator(), numb.getDenominator()), ShortArrays.multiplyArrays(this.getDenominator(), numb.getNumerator()), non_neg, finite);
 		}
 	}
 	
 	//This function should be called upon creating a new Rational.
-	//Since this object is immutable, it should be fine there.
+	//Since this object is theoretically immutable, it should be fine there.
 	private void reduce() {
+		//Euclid's thing
+		boolean isNegative = ShortArrays.isNegative(numerator) ^ ShortArrays.isNegative(denominator);
+		numerator = ShortArrays.isNegative(numerator) ? ShortArrays.flipSign(numerator) : Arrays.copyOf(numerator, numerator.length);
+		denominator = ShortArrays.isNegative(denominator) ? ShortArrays.flipSign(denominator) : Arrays.copyOf(denominator, denominator.length);
+		int comparison = ShortArrays.compareTo(numerator, 0, numerator.length, denominator);
+		if (comparison == 0) {
+			short[] one = {1};
+		}
 		
-	}
-	
-	private static short[] addVectors(short[] a, short[] b) {
-		short[] one = (a.length > b.length) ? a : b;
-		short[] two = (one == a) ? b : a;
-		short[] three = new short[one.length + 1];
-		short carry = 0;
-		for (int at = 0; at < two.length; at++) {
-			short answer = (short) (one[at]+two[at]+carry);
-			three[at] = (short) (answer%10);
-			carry = (short) (answer/10);
+		short[] max = (comparison > 0) ? numerator : denominator;
+		short[] min = (comparison < 0) ? numerator : denominator;
+		//System.out.println(Arrays.toString(max) + "\n" + Arrays.toString(min));
+		short[] zero = new short[1];
+		while (ShortArrays.compareTo(min, 0, min.length, zero) != 0) {
+			//System.out.println(Arrays.toString(max) + "\n" + Arrays.toString(min));
+			short[] temp = ShortArrays.divideArrays(max, min);
+			temp = ShortArrays.addArrays(max, ShortArrays.flipSign(ShortArrays.multiplyArrays(min, temp)));
+			max = min;
+			min = temp;
+			//System.out.println(Arrays.toString(max) + "\n" + Arrays.toString(min) + "\n" + Arrays.toString(temp) + "\n--------------------------------------------------------------------");
 		}
-		for (int at = two.length; at < one.length; at++) {
-			short answer = (short) (one[at]+carry);
-			three[at] = (short) (answer%10);
-			carry = (short) (answer/10);
-		}
-		three[three.length-1] = carry;
-		return three;
-	}
-	
-	//Entering an empty list is similar to multiplying by 1.
-	//Should I use Karatsuba's algorithm?
-	//TODO: think about it
-	private static short[] multiplyVectors(short[] a, short[] b) {
-		short[] one = (a.length > b.length) ? a : b;
-		short[] two = (a == one) ? b : a;
-		int[] three = new int[one.length+two.length];
-		int carry = 0;
-		for (int at = 0; at < one.length; at++) {
-			for (int at2 = 0; at2 < two.length; at2++) {
-				three[at+at2] += two[at2]*one[at];
-			}
-		}
-		for (int at = 0; at < three.length; at++) {
-			three[at] += carry;
-			carry = three[at]/10;
-			three[at] -= carry*10;
-		}
-		three[three.length-1] += carry;
-		int newLength = three.length-1;
-		while (newLength >= 0 && three[newLength] == 0)
-			newLength--;
-		short[] four = new short[newLength+1];
-		for (int at = 0; at < four.length; at++) {
-			four[at] = (short) three[at];
-		}
-		return four;
-	}
-	
-	//Performs integer division on two vectors.
-	//TODO: this
-	public static short[] divideVectors(short[] a, short[] b) {
-		if (b.length > a.length) {
-			short[] answer = {0};
-			return answer;
-		} else {
-			int pointer = 0;
-			while (pointer + b.length <= a.length) {
-				if (a[pointer] < b[pointer]) {
-					
-				} else {
-					
-				}
-			}
-			return null;
-		}
+		numerator = ShortArrays.divideArrays(numerator, max);
+		denominator = ShortArrays.divideArrays(denominator, max);
+		if (isNegative)
+			numerator = ShortArrays.flipSign(numerator);
 	}
 	
 	public short[] getNumerator() {
@@ -184,12 +149,10 @@ public class Rational {
 	}
 	
 	public static void main(String[] args) {
-		Rational r1 = new Rational("36", "4");
-		Rational r2 = new Rational("12", "3");
-		Rational r3 = new Rational("12", "1");
-		System.out.println(r1 + "\n----\n" + r2);
-		System.out.println(r1.multiply(r2));
-		System.out.println(r3);
+		Rational a = new Rational("74", "5465734675534");
+		System.out.println(a);
+		a = new Rational("5", "534");
+		System.out.println(a);
 	}
 	
 }
