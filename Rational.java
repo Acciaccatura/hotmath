@@ -55,6 +55,11 @@ public class Rational {
 			numerator[x] = (short) ((a.charAt(numerator.length-1-x)-0x30)*(neg ? -1 : 1));
 		for (int x = 0; x < denominator.length; x++)
 			denominator[x] = (short) ((b.charAt(denominator.length-1-x)-0x30));
+		numerator = ShortArrays.getUnpaddedArray(numerator);
+		denominator = ShortArrays.getUnpaddedArray(denominator);
+		if (denominator.length == 1 && denominator[0] == 0) {
+			throw new InvalidValueException("Denominator is zero.");
+		}
 		reduce();
 	}
 	
@@ -162,4 +167,10 @@ public class Rational {
 		}
 		return numb.toString();
 	}
+	
+	public static void main(String[] args) {
+		Rational a = new Rational("1","2348910");
+		System.out.println(a.multiply(new Rational("09825", "0000")).toDecimalString(1000));
+	}
+	
 }
